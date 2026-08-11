@@ -1,5 +1,5 @@
 /* Entry Point */
-ENTRY(Reset_Entry)
+ENTRY(_start)
 
 /* define heap and stack size */
 __HEAP_SIZE            = 16380 ;
@@ -7,25 +7,14 @@ __STACK_SIZE           = 16380 ;
     
 MEMORY
 {
-    SRAM_CODE :	org = 0x40008000,   len = 96K
-    SRAM :	org = 0x40000000,   len = 32K
+    SRAM_CODE :	org = 0x40010000,   len = 32K
+    SRAM :	org = 0x40018000,   len = 32K
 }
 
 SECTIONS
 {
     . = ORIGIN(SRAM_CODE);
     
-    .intc_vector_table ALIGN(0x10000) :
-    {
-      KEEP(*(.intc_vector_table))
-    } > SRAM_CODE
-
-    .core_exceptions_table ALIGN(0x10) :
-    {
-      __IVPR_VALUE = . ;
-      KEEP(*(.core_exceptions_table))
-    } > SRAM_CODE
-
     .startup ALIGN(4) :
     {
     __start = . ;

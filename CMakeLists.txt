@@ -46,8 +46,8 @@ add_executable(firmware.elf ${SRC_FILES})
 target_compile_definitions(firmware.elf PRIVATE MPC5566)
 target_link_libraries(firmware.elf EmbeddedIOServices)
 
-set(HEX_FILE ${PROJECT_SOURCE_DIR}/build/Kernel-E92.hex)
-set(BIN_FILE ${PROJECT_SOURCE_DIR}/build/Kernel-E92.bin)
+set(HEX_FILE ${PROJECT_SOURCE_DIR}/build/Kernel-E78.hex)
+set(BIN_FILE ${PROJECT_SOURCE_DIR}/build/Kernel-E78.bin)
 add_custom_command(TARGET firmware.elf POST_BUILD
         COMMAND ${CMAKE_OBJCOPY} ARGS -O ihex $<TARGET_FILE:firmware.elf> ${HEX_FILE}
         COMMAND ${CMAKE_OBJCOPY} ARGS -O binary $<TARGET_FILE:firmware.elf> ${BIN_FILE}

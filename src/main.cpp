@@ -39,9 +39,9 @@ constexpr std::uint16_t kMaximumReadMemoryLength = 4094U;
 constexpr std::uint16_t kMaximumTransferDataMessageLength = 0x0FFFU;
 constexpr std::uint8_t kLZ4DataFormatIdentifier = 0x10U;
 constexpr std::uint32_t kMaximumLZ4OutputBlockLength = 4096U;
-constexpr std::uint32_t kBrokenECCFlashRegionLength = 8U;
-constexpr std::uint32_t kBrokenECCFlashRegion1 = 0x0001FFF8U;
-constexpr std::uint32_t kBrokenECCFlashRegion2 = 0x0002FFF8U;
+constexpr std::uint32_t kBrokenECCFlashRegionLength = 32U;
+constexpr std::uint32_t kBrokenECCFlashRegion1 = 0x00003FE0U;
+constexpr std::uint32_t kBrokenECCFlashRegion2 = 0x0001FFE0U;
 
 // One shared, allocation-free staging buffer is sufficient because diagnostic
 // requests are dispatched serially by the ISO-TP service.
