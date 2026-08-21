@@ -40,7 +40,8 @@ IF(EmbeddedIOService_SOURCES_Templates)
         list(REMOVE_ITEM EmbeddedIOService_SOURCES ${EmbeddedIOService_SOURCES_Templates})
 ENDIF()
 
-set(SRC_FILES ${USER_CSOURCES} ${USER_CXXSOURCES} ${EmbeddedIOService_SOURCES} startup_mpc5566.s MPC5566_RAM.ld)
+set(SRC_FILES ${USER_CSOURCES} ${USER_CXXSOURCES} ${EmbeddedIOService_SOURCES}
+    startup_mpc5566.s MPC5566_RAM.ld)
 add_executable(firmware.elf ${SRC_FILES})
 
 target_compile_definitions(firmware.elf PRIVATE MPC5566)

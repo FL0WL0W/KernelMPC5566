@@ -2,13 +2,24 @@
 ENTRY(_start)
 
 /* define heap and stack size */
-__HEAP_SIZE            = 16380 ;
-__STACK_SIZE           = 16380 ;
+__HEAP_SIZE            = 16000 ;
+__STACK_SIZE           = 16000 ;
     
 MEMORY
 {
-    SRAM_CODE :	org = 0x40010000,   len = 32K
-    SRAM :	org = 0x40018000,   len = 32K
+    /*
+     * Keep the E78 application's fixed small-data windows available for
+     * calls into the untouched application image:
+     *
+     *   r13 base / initialized state: 0x40008000
+     *   r14 base:                     0x40018000
+     *
+     * Kernel code fits below the r14 window.  Kernel writable state lives in
+     * the otherwise separate 0x40020000 window so the application RAM image
+     * at 0x40009100..0x4000E1FF can be reconstructed later.
+     */
+    SRAM_CODE : org = 0x40010000, len = 64K
+    SRAM      : org = 0x40008000, len = 32K
 }
 
 SECTIONS
@@ -95,17 +106,17 @@ SECTIONS
     .eh_frame_hdr : { *(.eh_frame_hdr) } > SRAM_CODE
     .eh_frame     : { KEEP (*(.eh_frame)) } > SRAM_CODE
     
-    .data   : 
+    .data   :
     {
       *(.data)
       *(.data.*)
-    }  > SRAM_CODE 
+    } > SRAM_CODE
     
     .sdata2  :
     {  
       *(.sdata2)
       *(.sdata2.*)
-    } > SRAM_CODE 
+    } > SRAM_CODE
 
     .sbss2    (NOLOAD)   :
     {
@@ -118,7 +129,7 @@ SECTIONS
     {
       *(.sdata)
       *(.sdata.*)
-    } > SRAM_CODE 
+    } > SRAM_CODE
     
     .bss   (NOLOAD)  :
     {
@@ -150,4 +161,3 @@ SECTIONS
 __BSS_SIZE    = __BSS_END - __BSS_START;
 
 }
-
