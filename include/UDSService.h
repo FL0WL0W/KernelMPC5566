@@ -20,6 +20,7 @@ namespace E78
 		std::uint32_t address,
 		const std::uint8_t* data,
 		std::size_t length)>;
+	using UDSExitToBootloaderFunction = std::function<void()>;
 
 	class UDSService final
 	{
@@ -46,6 +47,7 @@ namespace E78
 		const UDSMemoryRegion* const _writeRegions;
 		const std::size_t _writeRegionCount;
 		const UDSFlashWriteFunction _writeFlash;
+		const UDSExitToBootloaderFunction _exitToBootloader;
 		EmbeddedIOServices::communication_receive_callback_id_t _callbackId;
 		TransferState _download;
 		TransferState _upload;
@@ -103,7 +105,8 @@ namespace E78
 			std::size_t readRegionCount,
 			const UDSMemoryRegion* writeRegions,
 			std::size_t writeRegionCount,
-			UDSFlashWriteFunction writeFlash);
+			UDSFlashWriteFunction writeFlash,
+			UDSExitToBootloaderFunction exitToBootloader);
 		~UDSService();
 
 		UDSService(const UDSService&) = delete;

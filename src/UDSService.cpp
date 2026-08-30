@@ -10,13 +10,15 @@ namespace E78
 		std::size_t readRegionCount,
 		const UDSMemoryRegion* writeRegions,
 		std::size_t writeRegionCount,
-		UDSFlashWriteFunction writeFlash)
+		UDSFlashWriteFunction writeFlash,
+		UDSExitToBootloaderFunction exitToBootloader)
 		: _communication(communication),
 		  _readRegions(readRegions),
 		  _readRegionCount(readRegionCount),
 		  _writeRegions(writeRegions),
 		  _writeRegionCount(writeRegionCount),
 		  _writeFlash(writeFlash),
+		  _exitToBootloader(exitToBootloader),
 		  _callbackId(_communication.RegisterReceiveCallBack(
 			  [this](EmbeddedIOServices::communication_send_callback_t send,
 				  const void* data,
@@ -408,6 +410,27 @@ namespace E78
 			static_cast<const std::uint8_t*>(data);
 		switch (request[0])
 		{
+		case 0x10U:
+			if (length != 2U)
+			{
+				SendNegative(send, 0x10U, 0x13U);
+			}
+			else if (request[1] != 0x02U)
+			{
+				SendNegative(send, 0x10U, 0x12U);
+			}
+			else if (!_exitToBootloader)
+			{
+				SendNegative(send, 0x10U, 0x22U);
+			}
+			else
+			{
+				// Match the application's successful programming-session response.
+				const std::uint8_t response[] = {0x50U};
+				send(response, sizeof(response));
+				_exitToBootloader();
+			}
+			break;
 		case 0x23U:
 			HandleReadMemory(send, request + 1U, length - 1U);
 			break;

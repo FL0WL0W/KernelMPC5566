@@ -9,6 +9,8 @@
 using namespace EmbeddedIOServices;
 using namespace MPC5xxx;
 
+extern "C" [[noreturn]] void ExitToBootloaderUploadRoutine();
+
 extern "C" __attribute__((weak)) bool WriteToFlash(
 	std::uint32_t address,
 	const std::uint8_t* data,
@@ -96,7 +98,8 @@ extern "C" int main()
 		sizeof(udsReadRegions) / sizeof(udsReadRegions[0]),
 		udsWriteRegions,
 		sizeof(udsWriteRegions) / sizeof(udsWriteRegions[0]),
-		WriteToFlash);
+		WriteToFlash,
+		ExitToBootloaderUploadRoutine);
 
 	const std::uint8_t alive = 0x99U;
 	bool engineOutputState = false;

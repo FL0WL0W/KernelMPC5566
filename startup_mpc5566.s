@@ -79,3 +79,20 @@ bss_Init_end:
 
 ;# Jump to Main
 	bl	main
+
+;# Enter the flash-resident secondary bootloader without retaining any kernel
+;# call frames.  The bootloader clears 0x40000400-0x4001BFFF during entry, so
+;# the kernel's normal stack at 0x4000FD00 cannot be used for this transition.
+	.section .text_booke, "ax"
+	.align 2
+	.globl ExitToBootloaderUploadRoutine
+	.type ExitToBootloaderUploadRoutine, @function
+ExitToBootloaderUploadRoutine:
+	wrteei	0
+	lis	r1, 0x4002
+	addi	r1, r1, -0x10
+	lis	r12, 0x0002
+	lwz	r12, -0x5060(r12)
+	mtctr	r12
+	bctr
+	.size ExitToBootloaderUploadRoutine, .-ExitToBootloaderUploadRoutine
