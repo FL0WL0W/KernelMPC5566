@@ -102,6 +102,7 @@ extern "C" int main()
 		ExitToBootloaderUploadRoutine);
 
 	const std::uint8_t alive = 0x99U;
+    isotp->Send(&alive, 1U);
 	bool engineOutputState = false;
 	std::uint32_t loopStart = ReadTimebase();
 	while (true)
@@ -127,6 +128,5 @@ extern "C" int main()
 				static_cast<digitalpin_t>(FirstIgnitionPin + channel),
 				engineOutputState);
 		}
-		isotp->Send(&alive, 1U);
 	}
 }

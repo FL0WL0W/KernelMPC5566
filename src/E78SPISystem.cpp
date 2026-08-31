@@ -65,6 +65,14 @@ namespace E78
 		  Delphi28046304(_delphi28046304SPI),
 		  DelphiDigitalOutputs(_delphiDigitalOutputService)
 	{
+		// E78 board-specific DSPI-B routing. Pin muxing intentionally remains
+		// outside MPC5xxxSPIService because these pad assignments and electrical
+		// settings are specific to this ECU and MCU package.
+		SIU.PCR[102].R = 0x0604U; // SCKB
+		SIU.PCR[103].R = 0x0514U; // SINB
+		SIU.PCR[104].R = 0x0614U; // SOUTB
+		SIU.PCR[105].R = 0x0604U; // PCSB0
+
 		MPM.InitializeNormalMode();
 	}
 

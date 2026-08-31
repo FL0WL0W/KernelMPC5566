@@ -89,8 +89,10 @@ bss_Init_end:
 	.type ExitToBootloaderUploadRoutine, @function
 ExitToBootloaderUploadRoutine:
 	wrteei	0
-	lis	r1, 0x4002
-	addi	r1, r1, -0x10
+;# Use the bootloader's locked cache-as-RAM stack.  Its secondary-mode entry
+;# clears 0x40000400..0x4001BFFF, so no ordinary SRAM stack is safe here.
+	lis	r1, 0x6000
+	ori	r1, r1, 0x3FF0
 	lis	r12, 0x0002
 	lwz	r12, -0x5060(r12)
 	mtctr	r12
