@@ -10,7 +10,7 @@ While running, the kernel services both the MPC core watchdog and the ON20845-00
 
 - Use a stable, current-limited power supply.
 - Do not reset or remove power during flash erase or programming.
-- Keep a known-good 3 MiB image and a working BAM recovery method available.
+- Keep a known-good 3 MiB image and a working BAM recovery method available. Be sure to read out the Shadow Password beforehand.
 - Erase and program complete physical flash blocks. Flash cannot safely be treated as arbitrary byte-addressable storage.
 
 ## Build
