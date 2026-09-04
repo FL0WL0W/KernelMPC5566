@@ -11,7 +11,8 @@ namespace E78
 		const UDSMemoryRegion* writeRegions,
 		std::size_t writeRegionCount,
 		UDSFlashWriteFunction writeFlash,
-		UDSExitToBootloaderFunction exitToBootloader)
+		UDSExitToBootloaderFunction exitToBootloader,
+		UDSRoutineControlFunction routineControl)
 		: _communication(communication),
 		  _readRegions(readRegions),
 		  _readRegionCount(readRegionCount),
@@ -19,6 +20,7 @@ namespace E78
 		  _writeRegionCount(writeRegionCount),
 		  _writeFlash(writeFlash),
 		  _exitToBootloader(exitToBootloader),
+		  _routineControl(routineControl),
 		  _callbackId(_communication.RegisterReceiveCallBack(
 			  [this](EmbeddedIOServices::communication_send_callback_t send,
 				  const void* data,
@@ -66,7 +68,8 @@ namespace E78
 	bool UDSService::WriteMemory(
 		std::uint32_t address,
 		const std::uint8_t* data,
-		std::size_t length)
+		std::size_t length,
+		UDSFlashWriteCompletion completion)
 	{
 		const UDSMemoryRegion* const region = FindRegion(
 			_writeRegions,
@@ -76,12 +79,13 @@ namespace E78
 		if (region == nullptr)
 			return false;
 		if (region->RequiresFlashWriter)
-			return _writeFlash && _writeFlash(address, data, length);
+			return _writeFlash && _writeFlash(address, data, length, completion);
 
 		volatile std::uint8_t* const destination =
 			reinterpret_cast<volatile std::uint8_t*>(address);
 		for (std::size_t i = 0U; i < length; ++i)
 			destination[i] = data[i];
+		completion(true);
 		return true;
 	}
 
@@ -174,6 +178,12 @@ namespace E78
 			SendNegative(send, service, 0x31U);
 			return length;
 		}
+		if (!upload && region->RequiresFlashWriter &&
+			((address & 7U) != 0U || (size & 7U) != 0U))
+		{
+			SendNegative(send, service, 0x31U);
+			return length;
+		}
 
 		TransferState& state = upload ? _upload : _download;
 		state.Address = address;
@@ -183,15 +193,24 @@ namespace E78
 		state.NextBlockSequenceCounter = 1U;
 		state.PreviousBlockSequenceCounter = 0U;
 		state.PreviousBlockValid = false;
+		state.PreviousBlockComplete = false;
+		state.PreviousBlockSuccessful = false;
 		state.Active = true;
 		(upload ? _download : _upload).Active = false;
 		_previousUploadResponseLength = 0U;
+		if (!upload)
+		{
+			_pendingDownloadWrites = 0U;
+			_downloadFailed = false;
+		}
 
 		const std::uint8_t response[] = {
 			static_cast<std::uint8_t>(upload ? 0x75U : 0x74U),
 			0x20U,
-			static_cast<std::uint8_t>(MaximumMessageLength >> 8U),
-			static_cast<std::uint8_t>(MaximumMessageLength),
+			static_cast<std::uint8_t>(
+				(upload ? MaximumMessageLength : MaximumDownloadMessageLength) >> 8U),
+			static_cast<std::uint8_t>(
+				upload ? MaximumMessageLength : MaximumDownloadMessageLength),
 		};
 		send(response, sizeof(response));
 		return length;
@@ -286,7 +305,7 @@ namespace E78
 		const std::uint8_t* data,
 		std::size_t length)
 	{
-		if (length < 2U || length > MaximumMessageLength - 1U)
+		if (length < 2U || length > MaximumDownloadMessageLength - 1U)
 		{
 			SendNegative(send, 0x36U, 0x13U);
 			return length;
@@ -346,16 +365,60 @@ namespace E78
 		}
 		const std::uint32_t address =
 			_download.Address + _download.BytesTransferred;
-		if (!WriteMemory(address, blockData, blockLength))
+		const UDSMemoryRegion* const writeRegion = FindRegion(
+			_writeRegions,
+			_writeRegionCount,
+			address,
+			blockLength);
+		if (writeRegion != nullptr && writeRegion->RequiresFlashWriter &&
+			(blockLength & 7U) != 0U)
 		{
-			_download.Active = false;
-			SendNegative(send, 0x36U, 0x72U);
+			SendNegative(send, 0x36U, 0x31U);
 			return length;
 		}
+		const std::uint32_t previousBytesTransferred =
+			_download.BytesTransferred;
+		const std::uint8_t previousSequenceCounter =
+			_download.PreviousBlockSequenceCounter;
+		const bool previousBlockValid = _download.PreviousBlockValid;
+		const bool previousBlockComplete = _download.PreviousBlockComplete;
+		const bool previousBlockSuccessful = _download.PreviousBlockSuccessful;
 		_download.BytesTransferred += blockLength;
 		_download.PreviousBlockSequenceCounter = counter;
 		_download.PreviousBlockValid = true;
+		_download.PreviousBlockComplete = false;
+		_download.PreviousBlockSuccessful = false;
 		_download.NextBlockSequenceCounter = static_cast<std::uint8_t>(counter + 1U);
+		++_pendingDownloadWrites;
+		const bool queued = WriteMemory(
+			address,
+			blockData,
+			blockLength,
+			[this, counter](bool successful) {
+				if (_pendingDownloadWrites != 0U)
+					--_pendingDownloadWrites;
+				if (counter == _download.PreviousBlockSequenceCounter)
+				{
+					_download.PreviousBlockComplete = true;
+					_download.PreviousBlockSuccessful = successful;
+				}
+				if (!successful)
+					_downloadFailed = true;
+			});
+		if (!queued)
+		{
+			--_pendingDownloadWrites;
+			_download.BytesTransferred = previousBytesTransferred;
+			_download.PreviousBlockSequenceCounter = previousSequenceCounter;
+			_download.PreviousBlockValid = previousBlockValid;
+			_download.PreviousBlockComplete = previousBlockComplete;
+			_download.PreviousBlockSuccessful = previousBlockSuccessful;
+			_download.NextBlockSequenceCounter = counter;
+			// The flash writer owns one active and one waiting buffer. Keep the
+			// transfer alive so the client can retry if both are occupied.
+			SendNegative(send, 0x36U, 0x21U);
+			return length;
+		}
 		const std::uint8_t response[] = {0x76U, counter};
 		send(response, sizeof(response));
 		return length;
@@ -392,10 +455,44 @@ namespace E78
 			SendNegative(send, 0x37U, 0x24U);
 			return length;
 		}
+		if (_download.Active && _pendingDownloadWrites != 0U)
+		{
+			SendNegative(send, 0x37U, 0x21U);
+			return length;
+		}
+		if (_download.Active && _downloadFailed)
+		{
+			_download.Active = false;
+			SendNegative(send, 0x37U, 0x72U);
+			return length;
+		}
 		_download.Active = false;
 		_upload.Active = false;
 		const std::uint8_t response[] = {0x77U};
 		send(response, sizeof(response));
+		return length;
+	}
+
+	std::size_t UDSService::HandleRoutineControl(
+		const EmbeddedIOServices::communication_send_callback_t& send,
+		const std::uint8_t* data,
+		std::size_t length)
+	{
+		if (length < 3U)
+		{
+			SendNegative(send, 0x31U, 0x13U);
+			return length;
+		}
+		const std::uint8_t subFunction = data[0] & 0x7FU;
+		const std::uint16_t routineIdentifier =
+			(static_cast<std::uint16_t>(data[1]) << 8U) | data[2];
+		if (!_routineControl || !_routineControl(
+				subFunction,
+				routineIdentifier,
+				data + 3U,
+				length - 3U,
+				send))
+			SendNegative(send, 0x31U, 0x31U);
 		return length;
 	}
 
@@ -445,6 +542,9 @@ namespace E78
 			break;
 		case 0x37U:
 			HandleTransferExit(send, length - 1U);
+			break;
+		case 0x31U:
+			HandleRoutineControl(send, request + 1U, length - 1U);
 			break;
 		case 0x27U:
 			if (length >= 2U && request[1] == 0x01U)

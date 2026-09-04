@@ -1,6 +1,7 @@
-#include "E78SPISystem.h"
-#include "MPC5xxxDigitalService.h"
 #include "MPC5xxxFlexCAN2Service.h"
+#include "MPC5xxxSPIService.h"
+#include "MPC5566FlashService.h"
+#include "ON20845-007Device.h"
 #include "UDSService.h"
 
 #include <cstddef>
@@ -11,23 +12,22 @@ using namespace MPC5xxx;
 
 extern "C" [[noreturn]] void ExitToBootloaderUploadRoutine();
 
-extern "C" __attribute__((weak)) bool WriteToFlash(
-	std::uint32_t address,
-	const std::uint8_t* data,
-	std::size_t length)
-{
-	(void)address;
-	(void)data;
-	(void)length;
-	return false;
-}
-
 namespace
 {
-	constexpr std::uint32_t LoopPeriodTimebaseTicks = 0x0005DC00U;
-	constexpr digitalpin_t FirstInjectorPin = 132U;
-	constexpr digitalpin_t FirstIgnitionPin = 167U;
-	constexpr std::size_t EngineOutputCount = 8U;
+	constexpr std::uint32_t LoopPeriodTimebaseTicks = 0x00061A80U;
+	constexpr MPC5xxxSPIServiceConfiguration ON20845Configuration = {
+		0U,
+		4800000U,
+		16U,
+		SPIClockPolarity::IdleLow,
+		SPIClockPhase::CaptureOnLeadingEdge,
+		500U,
+		1500U,
+		3000U,
+		false,
+		false,
+	};
+
 	std::uint32_t ReadTimebase()
 	{
 		std::uint32_t value;
@@ -52,30 +52,13 @@ extern "C" int main()
 {
 	asm("wrteei 0");
 
-	E78::E78SPISystem spiSystem;
-	spiSystem.ON20845.SendOutputConfiguration();
-	spiSystem.DelphiDigitalOutputs.InitPin(4U, Out);
-	spiSystem.DelphiDigitalOutputs.WritePin(4U, true);
-	spiSystem.Delphi28046304.RequestIdentification(nullptr);
-	spiSystem.Delphi28046304.RequestIdentification(nullptr);
-	spiSystem.Delphi28046304.SendRevision4Configuration(nullptr);
-	spiSystem.Delphi28046304.SendCommand(0x0F1AU, 0x0082U, nullptr);
-	spiSystem.Delphi28046304.SendCommand(0x0F1DU, 0x1450U, nullptr);
-	spiSystem.Delphi28046304.SendCommand(0x0F1DU, 0x04F0U, nullptr);
-	spiSystem.Delphi28046304.RequestDiagnostic(nullptr);
-	spiSystem.Delphi28046304.SendCommand(0x0F14U, 0x3E20U, nullptr);
-	MPC5xxxDigitalService digitalService;
-	for (std::size_t channel = 0U; channel < EngineOutputCount; ++channel)
-	{
-		const digitalpin_t injector = static_cast<digitalpin_t>(
-			FirstInjectorPin + channel);
-		const digitalpin_t ignition = static_cast<digitalpin_t>(
-			FirstIgnitionPin + channel);
-		digitalService.WritePin(injector, false);
-		digitalService.WritePin(ignition, false);
-		digitalService.InitPin(injector, Out);
-		digitalService.InitPin(ignition, Out);
-	}
+	MPC5xxxSPIService on20845SPI(&DSPI_D, ON20845Configuration);
+	// The bootloader callback stores the word it just transmitted here. Seed
+	// the kernel from that live value so the next service uses the opposite
+	// rolling phase rather than restarting at an arbitrary phase.
+	E78::ON20845_007Device on20845(
+		on20845SPI);
+
 	volatile FLEXCAN2_tag* canModules[] = {&CAN_A};
 	const CANBaudRate canBaudRates[] = {CANBaudRate::Kbps500};
 	MPC5xxxFlexCAN2Service canService(canModules, canBaudRates, 1U);
@@ -85,48 +68,60 @@ extern "C" int main()
 	const E78::UDSMemoryRegion udsReadRegions[] = {
 		{0x00000000U, 0x00003FE0U, true},
 		{0x00004000U, 0x0001BFE0U, true},
-		{0x00020000U, 0x003E0000U, true},
-		{0x40000000U, 0x00040000U, false},
+		{0x00020000U, 0x002E0000U, true},
+		{0x40000000U, 0x00020000U, false},
 	};
 	const E78::UDSMemoryRegion udsWriteRegions[] = {
-		{0x00000000U, 0x00400000U, true},
-		{0x40000000U, 0x00040000U, false},
+		{0x00000000U, 0x00300000U, true},
+		{0x40000000U, 0x00020000U, false},
 	};
+	E78::MPC5566FlashService flashService;
 	E78::UDSService uds(
 		*isotp,
 		udsReadRegions,
 		sizeof(udsReadRegions) / sizeof(udsReadRegions[0]),
 		udsWriteRegions,
 		sizeof(udsWriteRegions) / sizeof(udsWriteRegions[0]),
-		WriteToFlash,
-		ExitToBootloaderUploadRoutine);
+		[&flashService](std::uint32_t address,
+			const std::uint8_t* data,
+			std::size_t length,
+			E78::UDSFlashWriteCompletion completion) {
+			return flashService.QueueWrite(address, data, length, completion);
+		},
+		ExitToBootloaderUploadRoutine,
+		[&flashService](std::uint8_t subFunction,
+			std::uint16_t routineIdentifier,
+			const std::uint8_t* optionRecord,
+			std::size_t optionRecordLength,
+			const communication_send_callback_t& send) {
+			return flashService.HandleRoutineControl(
+				subFunction,
+				routineIdentifier,
+				optionRecord,
+				optionRecordLength,
+				send);
+		});
+	(void)uds;
 
-	const std::uint8_t alive = 0x99U;
-    isotp->Send(&alive, 1U);
-	bool engineOutputState = false;
+	const uint8_t readyResponse[] = {0x99};
+	if (isotp->Ready())
+		isotp->Send(readyResponse, 1U);
+
 	std::uint32_t loopStart = ReadTimebase();
 	while (true)
 	{
 		canService.PollFlexCAN(CAN_A);
-		spiSystem.Service();
+		MPC5xxxSPIService::Service(DSPI_D);
 
 		const std::uint32_t now = ReadTimebase();
+		if (isotp->Ready())
+			flashService.Service(now);
 		if (static_cast<std::uint32_t>(now - loopStart) <
 			LoopPeriodTimebaseTicks)
 			continue;
 
 		loopStart = now;
 		ServiceCoreWatchdog();
-		spiSystem.ServiceWatchdogs();
-		engineOutputState = !engineOutputState;
-		for (std::size_t channel = 0U; channel < EngineOutputCount; ++channel)
-		{
-			digitalService.WritePin(
-				static_cast<digitalpin_t>(FirstInjectorPin + channel),
-				engineOutputState);
-			digitalService.WritePin(
-				static_cast<digitalpin_t>(FirstIgnitionPin + channel),
-				engineOutputState);
-		}
+		on20845.ServiceWatchdog();
 	}
 }

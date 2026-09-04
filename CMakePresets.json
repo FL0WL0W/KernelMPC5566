@@ -16,27 +16,6 @@
                 "CMAKE_ASM_FLAGS": "-DNDEBUG -mcpu=e200z7 -mbig -mno-vle -mregnames",
                 "CMAKE_EXE_LINKER_FLAGS": "-Wl,--gc-sections -mcpu=e200z7 -specs=nosys.specs -mbig -mno-vle -mhard-float -T\"${sourceDir}/MPC5566_RAM.ld\""
             }
-        },
-        {
-            "name": "MPC5566-Flash-Release",
-            "displayName": "MPC5566 Flash Application",
-            "description": "BookE application stored at 0x80000 and entered by the E78 bootloader at 0x80010",
-            "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build/MPC5566-Flash-Release",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/toolchain.cmake",
-                "CMAKE_OBJCOPY": "powerpc-eabivle-objcopy",
-                "MPC5566_STARTUP_SOURCE": "${sourceDir}/startup_mpc5566_flash.s",
-                "MPC5566_LINKER_SCRIPT": "${sourceDir}/MPC5566_FLASH.ld",
-                "MPC5566_IMAGE_BASENAME": "Kernel-E78-Flash",
-                "MPC5566_GENERATE_FULL_FLASH_IMAGE": "ON",
-                "MPC5566_BOOTLOADER_IMAGE": "${sourceDir}/bootloader.bin",
-                "MPC5566_BINARY_GAP_FILL": "0xFF",
-                "CMAKE_C_FLAGS": "-DNDEBUG -Os -Wall -fmessage-length=0 -fstrict-volatile-bitfields -ffunction-sections -fdata-sections -mcpu=e200z7 -specs=nano.specs -mbig -mno-vle -mregnames -mhard-float -fmerge-all-constants -fno-ident",
-                "CMAKE_CXX_FLAGS": "-DNDEBUG -Os -Wall -fmessage-length=0 -fstrict-volatile-bitfields -ffunction-sections -fdata-sections -mcpu=e200z7 -specs=nano.specs -mbig -mno-vle -mregnames -mhard-float -fno-exceptions -fno-rtti -fmerge-all-constants -fno-ident",
-                "CMAKE_ASM_FLAGS": "-DNDEBUG -mcpu=e200z7 -mbig -mno-vle -mregnames",
-                "CMAKE_EXE_LINKER_FLAGS": "-Wl,--gc-sections -mcpu=e200z7 -specs=nosys.specs -mbig -mno-vle -mhard-float -T\"${sourceDir}/MPC5566_FLASH.ld\""
-            }
         }
     ]
 }

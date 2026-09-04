@@ -2,7 +2,7 @@
 ENTRY(_start)
 
 /* define heap and stack size */
-__HEAP_SIZE            = 16000 ;
+__HEAP_SIZE            = 24000 ;
 __STACK_SIZE           = 16000 ;
     
 MEMORY
@@ -18,8 +18,8 @@ MEMORY
      * the otherwise separate 0x40020000 window so the application RAM image
      * at 0x40009100..0x4000E1FF can be reconstructed later.
      */
-    SRAM_CODE : org = 0x40010000, len = 64K
-    SRAM      : org = 0x40008000, len = 32K
+    SRAM_CODE : org = 0x40014000, len = 48K
+    SRAM      : org = 0x40008000, len = 48K
 }
 
 SECTIONS
@@ -141,14 +141,18 @@ SECTIONS
       *(COMMON)
       __BSS_END = .;
     } > SRAM_CODE
+
+	.heap (NOLOAD) : ALIGN(16)
+	{
+	  __HEAP = . ;
+	  PROVIDE (_end = . );
+	  PROVIDE (end = . );
+	  . += __HEAP_SIZE ;
+	  __HEAP_END = . ;
+	} > SRAM
     
     .stack (NOLOAD) : ALIGN(16) 
     {
-      __HEAP = . ;
-      PROVIDE (_end = . );
-      PROVIDE (end = . );            
-      . += __HEAP_SIZE ;
-      __HEAP_END = . ;
       _stack_end = . ;
       . +=  __STACK_SIZE ;
       _stack_addr = . ;
