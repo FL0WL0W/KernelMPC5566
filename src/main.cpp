@@ -59,10 +59,8 @@ extern "C" int main()
 	E78::ON20845_007Device on20845(
 		on20845SPI);
 
-	volatile FLEXCAN2_tag* canModules[] = {&CAN_A};
-	const CANBaudRate canBaudRates[] = {CANBaudRate::Kbps500};
-	MPC5xxxFlexCAN2Service canService(canModules, canBaudRates, 1U);
-	ICommunicationService* const isotp = canService.GetISOTPService(
+    MPC5xxxFlexCAN2Service::Initialize(CAN_A, CANBaudRate::Kbps500);
+	ICommunicationService* const isotp = MPC5xxxFlexCAN2Service::Instance().GetISOTPService(
 		{0x7E0U, 0U},
 		{0x7E8U, 0U});
 	const E78::UDSMemoryRegion udsReadRegions[] = {
@@ -110,7 +108,7 @@ extern "C" int main()
 	std::uint32_t loopStart = ReadTimebase();
 	while (true)
 	{
-		canService.PollFlexCAN(CAN_A);
+		MPC5xxxFlexCAN2Service::PollFlexCAN(CAN_A);
 		MPC5xxxSPIService::Service(DSPI_D);
 
 		const std::uint32_t now = ReadTimebase();
