@@ -78,6 +78,14 @@ bss_Init_end:
 	stwu	r0,-64(r1)			;# Terminate stack.
 
 ;#****************************** Run ctors ******************************/
+	bl	RunGlobalConstructors
+
+;# Jump to Main
+	bl	main
+KernelReturned:
+	b	KernelReturned
+
+RunGlobalConstructors:
 	stwu	r1, -16(r1)
 	mflr	r0
 	stw	r0, 20(r1)
@@ -102,9 +110,6 @@ bss_Init_end:
 	mtlr	r0
 	addi	r1, r1, 16
 	blr
-
-;# Jump to Main
-	bl	main
 
 ;# Call each non-null function pointer in the half-open range [r3, r4).
 CallFunctionArray:

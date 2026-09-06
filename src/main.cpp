@@ -1,3 +1,4 @@
+#include "MPC55xxSystemClockService.h"
 #include "MPC5xxxFlexCAN2Service.h"
 #include "MPC5xxxSPIService.h"
 #include "MPC5566FlashService.h"
@@ -52,6 +53,7 @@ extern "C" int main()
 {
 	asm("wrteei 0");
 
+	MPC55xxSystemClockService::Initialize(8000000U, 128000000U);
 	MPC5xxxSPIService on20845SPI(&DSPI_D, ON20845Configuration);
 	// The bootloader callback stores the word it just transmitted here. Seed
 	// the kernel from that live value so the next service uses the opposite

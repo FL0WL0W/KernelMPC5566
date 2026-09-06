@@ -11,17 +11,22 @@ namespace E78
 	{
 	private:
 		EmbeddedIOServices::ISPIService& _service;
+		bool SendCommand(std::uint8_t first, std::uint8_t second);
 
 	protected:
 		std::uint8_t _watchdogBuffer[6];
 
 	public:
-		explicit ON20845_007Device(
-			EmbeddedIOServices::ISPIService& service)
+		explicit ON20845_007Device(EmbeddedIOServices::ISPIService& service)
 			: _service(service),
 			  _watchdogBuffer{0x6AU, 0x2CU, 0x00U, 0x00U, 0x00U, 0x00U} {}
 
-		bool ServiceWatchdog();
+		void ServiceWatchdog();
+		void SendOutputConfiguration();
+		void SendGroup5Base();
+		void SendGroup5Enabled();
+		void SendGroup4();
+		void SendGroup6(std::uint8_t control);
 	};
 }
 

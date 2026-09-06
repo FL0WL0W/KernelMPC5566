@@ -68,7 +68,7 @@ namespace MPC5xxx
 		mutable std::uint32_t _cachedClockTransferAttributes = 0U;
 		mutable bool _clockTransferAttributesCached = false;
 
-		void StartCurrentFrame();
+		void FillTransmitFifo();
 		void StartNextQueuedTransfer();
 		std::uint32_t BuildClockTransferAttributes(
 			const SPIFrameTiming& timing) const;
