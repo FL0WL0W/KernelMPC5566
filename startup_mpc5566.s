@@ -77,8 +77,61 @@ bss_Init_end:
 
 	stwu	r0,-64(r1)			;# Terminate stack.
 
+;#****************************** Run ctors ******************************/
+	stwu	r1, -16(r1)
+	mflr	r0
+	stw	r0, 20(r1)
+
+	lis	r3, __preinit_array_start@h
+	ori	r3, r3, __preinit_array_start@l
+	lis	r4, __preinit_array_end@h
+	ori	r4, r4, __preinit_array_end@l
+	bl	CallFunctionArray
+
+	;# Supplied by the PowerPC runtime. Among other runtime initialization,
+	;# this invokes the legacy .ctors list in its required reverse order.
+	bl	__init
+
+	lis	r3, __init_array_start@h
+	ori	r3, r3, __init_array_start@l
+	lis	r4, __init_array_end@h
+	ori	r4, r4, __init_array_end@l
+	bl	CallFunctionArray
+
+	lwz	r0, 20(r1)
+	mtlr	r0
+	addi	r1, r1, 16
+	blr
+
 ;# Jump to Main
 	bl	main
+
+;# Call each non-null function pointer in the half-open range [r3, r4).
+CallFunctionArray:
+	stwu	r1, -24(r1)
+	mflr	r0
+	stw	r0, 28(r1)
+	stw	r30, 16(r1)
+	stw	r31, 20(r1)
+	mr	r30, r3
+	mr	r31, r4
+CallFunctionArrayLoop:
+	cmplw	r30, r31
+	beq	CallFunctionArrayComplete
+	lwz	r12, 0(r30)
+	addi	r30, r30, 4
+	cmpwi	r12, 0
+	beq	CallFunctionArrayLoop
+	mtctr	r12
+	bctrl
+	b	CallFunctionArrayLoop
+CallFunctionArrayComplete:
+	lwz	r30, 16(r1)
+	lwz	r31, 20(r1)
+	lwz	r0, 28(r1)
+	mtlr	r0
+	addi	r1, r1, 24
+	blr
 
 ;# Enter the flash-resident secondary bootloader without retaining any kernel
 ;# call frames.  The bootloader clears 0x40000400-0x4001BFFF during entry, so
