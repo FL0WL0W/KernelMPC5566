@@ -76,7 +76,7 @@ namespace E78
 			std::size_t regionCount,
 			std::uint32_t address,
 			std::uint32_t length) const;
-		std::uint8_t ReadByte(std::uint32_t address) const;
+		std::uint8_t ReadByteOrFF(std::uint64_t address) const;
 		bool WriteMemory(
 			std::uint32_t address,
 			const std::uint8_t* data,

@@ -19,8 +19,7 @@ namespace E78
 		explicit ON20845_007Device(
 			EmbeddedIOServices::ISPIService& service)
 			: _service(service),
-			  _watchdogBuffer{
-				  0x6AU, 0x2CU, 0x00U, 0x00U, 0x00U, 0x00U} {}
+			  _watchdogBuffer{0x6AU, 0x2CU, 0x00U, 0x00U, 0x00U, 0x00U} {}
 
 		bool ServiceWatchdog();
 	};

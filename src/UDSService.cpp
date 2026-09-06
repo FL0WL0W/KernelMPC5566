@@ -60,9 +60,22 @@ namespace E78
 		return nullptr;
 	}
 
-	std::uint8_t UDSService::ReadByte(std::uint32_t address) const
+	std::uint8_t UDSService::ReadByteOrFF(std::uint64_t address) const
 	{
-		return *reinterpret_cast<const volatile std::uint8_t*>(address);
+		if (address > 0xFFFFFFFFULL)
+			return 0xFFU;
+		const std::uint32_t physicalAddress =
+			static_cast<std::uint32_t>(address);
+		if (FindRegion(
+				_readRegions,
+				_readRegionCount,
+				physicalAddress,
+				1U) == nullptr)
+		{
+			return 0xFFU;
+		}
+		return *reinterpret_cast<const volatile std::uint8_t*>(
+			physicalAddress);
 	}
 
 	bool UDSService::WriteMemory(
@@ -124,15 +137,17 @@ namespace E78
 		for (std::uint8_t i = 0U; i < sizeLength; ++i)
 			readLength = (readLength << 8U) |
 				data[1U + addressLength + i];
-		if (readLength + 1U > MaximumMessageLength ||
-			FindRegion(_readRegions, _readRegionCount, address, readLength) == nullptr)
+		if (readLength == 0U || readLength > MaximumMessageLength - 1U)
 		{
 			SendNegative(send, 0x23U, 0x31U);
 			return length;
 		}
 		_response[0] = 0x63U;
 		for (std::uint32_t i = 0U; i < readLength; ++i)
-			_response[1U + i] = ReadByte(address + i);
+		{
+			_response[1U + i] = ReadByteOrFF(
+				static_cast<std::uint64_t>(address) + i);
+		}
 		send(_response, 1U + readLength);
 		return length;
 	}
@@ -171,9 +186,9 @@ namespace E78
 		for (std::uint8_t i = 0U; i < sizeLength; ++i)
 			size = (size << 8U) | data[2U + addressLength + i];
 		const UDSMemoryRegion* const region = upload
-			? FindRegion(_readRegions, _readRegionCount, address, size)
+			? nullptr
 			: FindRegion(_writeRegions, _writeRegionCount, address, size);
-		if (region == nullptr)
+		if (size == 0U || (!upload && region == nullptr))
 		{
 			SendNegative(send, service, 0x31U);
 			return length;
@@ -246,8 +261,6 @@ namespace E78
 
 		const std::uint32_t remaining =
 			_upload.Size - _upload.BytesTransferred;
-		const std::uint32_t address =
-			_upload.Address + _upload.BytesTransferred;
 		_response[0] = 0x76U;
 		_response[1] = counter;
 		std::uint32_t blockLength = 0U;
@@ -256,7 +269,11 @@ namespace E78
 			blockLength = remaining < MaximumLZ4BlockLength
 				? remaining : MaximumLZ4BlockLength;
 			for (std::uint32_t i = 0U; i < blockLength; ++i)
-				_lz4Buffer[i] = ReadByte(address + i);
+			{
+				_lz4Buffer[i] = ReadByteOrFF(
+					static_cast<std::uint64_t>(_upload.Address) +
+					_upload.BytesTransferred + i);
+			}
 			std::size_t compressedLength;
 			Kernel::LZ4EncodeResult result;
 			do
@@ -288,7 +305,11 @@ namespace E78
 			blockLength = remaining < maximumDataLength
 				? remaining : maximumDataLength;
 			for (std::uint32_t i = 0U; i < blockLength; ++i)
-				_response[2U + i] = ReadByte(address + i);
+			{
+				_response[2U + i] = ReadByteOrFF(
+					static_cast<std::uint64_t>(_upload.Address) +
+					_upload.BytesTransferred + i);
+			}
 			_previousUploadResponseLength = static_cast<std::uint16_t>(
 				2U + blockLength);
 		}

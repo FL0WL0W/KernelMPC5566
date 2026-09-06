@@ -101,16 +101,17 @@ Treat `99` as the ready indication. Do not begin flash operations until it is re
 
 | Region | Read | Write | Notes |
 | --- | --- | --- | --- |
-| `0x00000000`–`0x002FFFFF` | Yes, except the holes below | Yes | MPC5566 internal flash |
+| `0x00000000`–`0x002FFFFF` | Yes | Yes | MPC5566 internal flash; ECC holes read as `FF` |
 | `0x40000000`–`0x4001FFFF` | Yes | Yes | SRAM; no erase required |
-| All other addresses | No | No | Rejected with NRC `31` |
+| All other addresses | Returns `FF` | No | Memory outside a configured read region is never accessed |
 
-The following flash addresses are excluded from reads because they are not backed by valid ECC data:
+The following flash addresses are not accessed because they are not backed by valid ECC data. Read and upload responses substitute `FF` for every byte in these ranges:
 
 - `0x00003FE0`–`0x00003FFF`
 - `0x0001FFE0`–`0x0001FFFF`
 
-A request may not cross from one configured region into another. Therefore, reading all flash requires separate requests around those holes.
+Read and upload requests may cross configured region boundaries, so the entire
+flash can be requested as one continuous range.
 
 ## Reading memory
 
