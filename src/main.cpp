@@ -69,6 +69,7 @@ extern "C" int main()
 		{0x00000000U, 0x00003FE0U, true},
 		{0x00004000U, 0x0001BFE0U, true},
 		{0x00020000U, 0x002E0000U, true},
+		{0x00FFFC00U, 0x00000400U, true},
 		{0x40000000U, 0x00020000U, false},
 	};
 	const E78::UDSMemoryRegion udsWriteRegions[] = {
