@@ -21,12 +21,17 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(EmbeddedIOServices)
 
+set(NANO_SPECS "${CMAKE_SYSROOT}/lib/nano.specs")
+set(NOSYS_SPECS "${CMAKE_SYSROOT}/lib/nosys.specs")
+target_compile_options(EmbeddedIOServices PRIVATE "-specs=${NANO_SPECS}")
+
 include_directories(${EmbeddedIOServicesHardwareAbstraction_Path}/include)
-file(GLOB_RECURSE EmbeddedIOServiceHardwareAbstraction_SRCS ${EmbeddedIOServicesHardwareAbstraction_Path}/src/*.cpp)
-file(GLOB_RECURSE EmbeddedIOServiceHardwareAbstraction_SRCS_Templates ${EmbeddedIOServicesHardwareAbstraction_Path}/src/*_template.cpp)
-if(EmbeddedIOServiceHardwareAbstraction_SRCS_Templates)
-        list(REMOVE_ITEM EmbeddedIOServiceHardwareAbstraction_SRCS ${EmbeddedIOServiceHardwareAbstraction_SRCS_Templates})
-endif()
+set(EmbeddedIOServiceHardwareAbstraction_SRCS 
+    ${EmbeddedIOServicesHardwareAbstraction_Path}/src/MPC5xxxSystemClockService.cpp
+    ${EmbeddedIOServicesHardwareAbstraction_Path}/src/MPC55xxSystemClockService.cpp
+    ${EmbeddedIOServicesHardwareAbstraction_Path}/src/MPC5xxxFlexCAN2Service.cpp
+    ${EmbeddedIOServicesHardwareAbstraction_Path}/src/MPC5xxxSPIService.cpp
+)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
@@ -34,6 +39,13 @@ file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
 set(MPC5566_LINKER_SCRIPT "${CMAKE_SOURCE_DIR}/MPC5566_RAM.ld")
 add_executable(firmware.elf ${EmbeddedIOServiceHardwareAbstraction_SRCS} ${SRCS} startup_mpc5566.s)
 set_property(TARGET firmware.elf PROPERTY LINK_DEPENDS ${MPC5566_LINKER_SCRIPT})
+
+target_compile_options(firmware.elf PRIVATE
+        "$<$<COMPILE_LANGUAGE:C>:-specs=${NANO_SPECS}>"
+        "$<$<COMPILE_LANGUAGE:CXX>:-specs=${NANO_SPECS}>")
+target_link_options(firmware.elf PRIVATE
+        "-specs=${NANO_SPECS}"
+        "-specs=${NOSYS_SPECS}")
 
 target_compile_definitions(firmware.elf PRIVATE MPC5566)
 target_link_libraries(firmware.elf EmbeddedIOServices)

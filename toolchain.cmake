@@ -4,11 +4,15 @@
 
   find_program(POWERPC_GCC     NAMES powerpc-eabivle-gcc REQUIRED)
   find_program(POWERPC_GXX     NAMES powerpc-eabivle-g++ REQUIRED)
+  find_program(POWERPC_GCC_AR  NAMES powerpc-eabivle-gcc-ar REQUIRED)
+  find_program(POWERPC_GCC_RANLIB NAMES powerpc-eabivle-gcc-ranlib REQUIRED)
   find_program(POWERPC_OBJCOPY NAMES powerpc-eabivle-objcopy REQUIRED)
 
   set(CMAKE_C_COMPILER   "${POWERPC_GCC}")
   set(CMAKE_CXX_COMPILER "${POWERPC_GXX}")
   set(CMAKE_ASM_COMPILER "${POWERPC_GCC}")
+  set(CMAKE_AR           "${POWERPC_GCC_AR}")
+  set(CMAKE_RANLIB       "${POWERPC_GCC_RANLIB}")
   set(CMAKE_OBJCOPY      "${POWERPC_OBJCOPY}")
 
   # Compiler is at <toolchain-root>/bin/powerpc-eabivle-gcc.
