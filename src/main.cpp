@@ -54,14 +54,14 @@ extern "C" int main()
 	asm("wrteei 0");
 
 	MPC55xxSystemClockService::Initialize(8000000U, 128000000U);
-	MPC5xxxSPIService on20845SPI(&DSPI_D, ON20845Configuration);
+	MPC5xxxSPIService on20845SPI(&DSPI_D, ON20845Configuration, 0U);
 	// The bootloader callback stores the word it just transmitted here. Seed
 	// the kernel from that live value so the next service uses the opposite
 	// rolling phase rather than restarting at an arbitrary phase.
 	E78::ON20845_007Device on20845(
 		on20845SPI);
 
-    MPC5xxxFlexCAN2Service::Initialize(CAN_A, CANBaudRate::Kbps500);
+    MPC5xxxFlexCAN2Service::Initialize(CAN_A, CANBaudRate::Kbps500, 0U);
 	ICommunicationService* const isotp = MPC5xxxFlexCAN2Service::Instance().GetISOTPService(
 		{0x7E0U, 0U},
 		{0x7E8U, 0U});
