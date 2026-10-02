@@ -3,6 +3,7 @@
 
 #include "ISPIService.h"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace E78
@@ -11,12 +12,17 @@ namespace E78
 	{
 	private:
 		EmbeddedIOServices::ISPIService& _service;
+		std::uint8_t _commandBuffer[2] = {};
+		volatile bool _commandPending = false;
+		volatile bool _watchdogPending = false;
 		bool SendCommand(std::uint8_t first, std::uint8_t second);
 
 	protected:
 		std::uint8_t _watchdogBuffer[6];
 
 	public:
+		static constexpr std::size_t MaximumTransferLength = 6U;
+
 		explicit ON20845_007Device(EmbeddedIOServices::ISPIService& service)
 			: _service(service),
 			  _watchdogBuffer{0x6AU, 0x2CU, 0x00U, 0x00U, 0x00U, 0x00U} {}

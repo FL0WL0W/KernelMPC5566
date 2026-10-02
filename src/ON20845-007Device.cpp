@@ -8,14 +8,25 @@ namespace E78
 		std::uint8_t first,
 		std::uint8_t second)
 	{
-		std::uint8_t command[] = {first, second};
-		return _service.Transfer(command, sizeof(command), nullptr);
+		if (_commandPending)
+			return false;
+		_commandBuffer[0] = first;
+		_commandBuffer[1] = second;
+		_commandPending = true;
+		if (_service.Transfer(
+				_commandBuffer,
+				nullptr,
+				sizeof(_commandBuffer),
+				[this]() { _commandPending = false; }))
+			return true;
+		_commandPending = false;
+		return false;
 	}
 
 	void ON20845_007Device::ServiceWatchdog()
 	{
 		// The periodic watchdog is best-effort and non-blocking.
-		if (!_service.Ready())
+		if (_watchdogPending || !_service.Ready())
 			return;
 
 		const std::uint16_t current = static_cast<std::uint16_t>(
@@ -26,13 +37,16 @@ namespace E78
 			(current & 0xC1FFU));
 		_watchdogBuffer[0] = static_cast<std::uint8_t>(next >> 8U);
 		_watchdogBuffer[1] = static_cast<std::uint8_t>(next);
+		_watchdogPending = true;
 		if (!_service.Transfer(
 				_watchdogBuffer,
+				nullptr,
 				sizeof(_watchdogBuffer),
-				nullptr))
+				[this]() { _watchdogPending = false; }))
 		{
 			_watchdogBuffer[0] = static_cast<std::uint8_t>(current >> 8U);
 			_watchdogBuffer[1] = static_cast<std::uint8_t>(current);
+			_watchdogPending = false;
 		}
 	}
 

@@ -7,9 +7,7 @@
 
 namespace EmbeddedIOServices
 {
-	using spi_transfer_callback_t = std::function<void(
-		std::uint8_t* data,
-		std::size_t length)>;
+	using spi_transfer_callback_t = std::function<void()>;
 
 	/**
 	 * @brief An asynchronous, full-duplex connection to one SPI device.
@@ -30,19 +28,21 @@ namespace EmbeddedIOServices
 		virtual bool Ready() = 0;
 
 		/**
-		 * @brief Start exchanging a byte buffer with the attached SPI device.
-		 * @param data Bytes to transmit in wire order. The implementation copies
-		 * these bytes before returning, so the caller may immediately reuse or
-		 * release this storage.
+		 * @brief Start exchanging byte buffers with the attached SPI device.
+		 * @param txData Bytes to transmit in wire order. This storage must remain
+		 * valid and unchanged until completionCallback is called.
+		 * @param rxData Optional storage for received bytes. When non-null, it must
+		 * remain valid until completionCallback is called. Pass nullptr to discard
+		 * received data.
 		 * @param length Number of bytes to exchange.
-		 * @param completionCallback Called once with the complete received bytes.
-		 * The response storage is owned by the service and is valid only while the
-		 * callback is running. Copy any response that must be retained.
+		 * @param completionCallback Called once after the exchange is complete and
+		 * rxData, when supplied, contains the received bytes.
 		 * @return true if the transaction was accepted; false if invalid or the
 		 * implementation has no queue capacity available.
 		 */
 		virtual bool Transfer(
-			std::uint8_t* data,
+			const std::uint8_t* txData,
+			std::uint8_t* rxData,
 			std::size_t length,
 			spi_transfer_callback_t completionCallback) = 0;
 	};

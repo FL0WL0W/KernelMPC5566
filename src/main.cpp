@@ -54,7 +54,11 @@ extern "C" int main()
 	asm("wrteei 0");
 
 	MPC55xxSystemClockService::Initialize(8000000U, 128000000U);
-	MPC5xxxSPIService on20845SPI(&DSPI_D, ON20845Configuration, 0U);
+	MPC5xxxSPIService on20845SPI(
+		&DSPI_D,
+		ON20845Configuration,
+		0U,
+		0U);
 	// The bootloader callback stores the word it just transmitted here. Seed
 	// the kernel from that live value so the next service uses the opposite
 	// rolling phase rather than restarting at an arbitrary phase.
@@ -112,7 +116,7 @@ extern "C" int main()
 	while (true)
 	{
 		MPC5xxxFlexCAN2Service::PollFlexCAN(CAN_A);
-		MPC5xxxSPIService::Service(DSPI_D);
+		MPC5xxxSPIService::Service(&DSPI_D);
 
 		const std::uint32_t now = ReadTimebase();
 		if (isotp->Ready())
