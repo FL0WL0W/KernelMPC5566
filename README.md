@@ -15,31 +15,86 @@ While running, the kernel services both the MPC core watchdog and the ON20845-00
 
 ## Build
 
-Requirements:
-
-- CMake 4.0 or newer
-- GNU Make
-- NXP's `powerpc-eabivle` GCC toolchain in `PATH`
-- Git/network access the first time CMake fetches `EmbeddedIOServices`
-
-Example using the S32 Design Studio toolchain:
+Requirements: CMake 4.0+, GNU Make, Git, Python 3, a native C/C++17 compiler
+(Clang 18 works), and network access for the first dependency download.
 
 ```bash
-export PATH="/home/daniel/NXP/S32DS_Power_v2.1/S32DS/build_tools/powerpc-eabivle-4_9/bin:$PATH"
-cd /home/daniel/git/KernelMPC5566
 cmake --preset MPC5566-Release
-cmake --build build/MPC5566-Release -j"$(nproc)"
+cmake --build --preset MPC5566-Release --parallel
 ```
+
+The build files have these roles:
+
+| File | Responsibility |
+| --- | --- |
+| `CMakePresets.json` | Release optimization, `-flto=full`, linker script, map file, and build directory |
+| `toolchain.cmake` | Bootstrap LLVM, select its tools, and set the selected e200 target flags |
+| `cmake/llvm-bootstrap/CMakeLists.txt` | Fetch and build native Clang, LLD, and LLVM object/archive tools |
+| `cmake/fetch-llvm.cmake` | Sparse checkout of the LLVM fork's `main` branch |
+| `cmake/Runtime.cmake` | Build Picolibc, compiler-rt, libc++, and libc++abi; expose `e200_runtime` |
+| `CMakeLists.txt` | Fetch EmbeddedIOServices, compile kernel sources, link firmware, and produce images |
+
+Every configure fetches the latest `main` from
+[FL0WL0W/llvm-project](https://github.com/FL0WL0W/llvm-project) and updates
+its shared source checkout. The first configure builds the host tools;
+later configurations rebuild them as needed. Run `cmake --preset MPC5566-Release`
+to pick up newly pushed commits. After a compiler update, clean the application
+and target-runtime builds before rebuilding to avoid reusing objects produced
+by the previous compiler.
+Target runtimes always build from source with the fetched compiler.
+Their build rules run each time and reuse unchanged objects.
+
+The target is 32-bit, big-endian PowerPC Book E, using `-mcpu=e200z6`.
+SPE single-precision floating point runs in hardware; double precision uses
+software helpers. The kernel uses C++17 and libc++ ABI v2, without exceptions,
+RTTI, threads, or runtime teardown. Startup enables SPE before compiled code.
+
+`-flto=full` is declared for the kernel's C++ code and executable linking in
+the preset. The separately built libc++ and libc++abi runtimes always use
+full LTO. Picolibc's C sources stay outside LTO so unused math tables
+can be discarded within the SRAM budget. No LTO properties or support checks
+are needed in `CMakeLists.txt`.
+
+Other projects can select the toolchain without adding a bootstrap include:
+
+```bash
+cmake -S /path/to/project -B /path/to/project/build \
+  --toolchain /path/to/e200-toolchain/toolchain.cmake \
+  -DE200_LLVM_ROOT=/path/to/shared-e200-cache \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS_RELEASE="-mcpu=e200z7 -Os -DNDEBUG" \
+  -DCMAKE_CXX_FLAGS_RELEASE="-mcpu=e200z7 -Os -DNDEBUG" \
+  -DCMAKE_ASM_FLAGS_RELEASE="-mcpu=e200z7"
+```
+
+Keep `toolchain.cmake` and `cmake/` together. `E200_LLVM_ROOT` defaults to
+`_deps` in the consuming build directory. Set it to this kernel's
+`build/MPC5566-Release/_deps` to share the existing compiler. Native LLVM
+always uses Unix Makefiles, independently of the consuming project's generator.
+Compiler checks and nested runtime builds reuse the prepared tools.
+Select the same `-mcpu=` option in the C, C++, and assembly flags. The kernel
+preset uses `-mcpu=e200z6`. `Runtime.cmake` extracts the last `-mcpu=` option
+from the common C flags followed by the active configuration's C flags, then
+uses that CPU for runtime compilation and directory names. The compiler build
+is shared across CPUs, while target-runtime build directories are CPU-specific.
+
+The native build defaults to 16 jobs; override it with
+`-DE200_LLVM_BUILD_JOBS=8`. LLVM configure/build logs are
+`llvm-host-configure.log` and `llvm-host-build.log` under `E200_LLVM_ROOT`.
+Use `cmake --fresh --preset MPC5566-Release` when changing compilers or target CPUs.
 
 Build outputs:
 
 | File | Purpose |
 | --- | --- |
-| `build/Kernel-E78.bin` | Raw binary to load into SRAM |
-| `build/Kernel-E78.hex` | Intel HEX representation |
+| `build/MPC5566-Release/Kernel-E78.bin` | Raw binary to load into SRAM |
+| `build/MPC5566-Release/Kernel-E78.hex` | Intel HEX representation |
 | `build/MPC5566-Release/firmware.elf` | ELF with symbols for debugging |
+| `build/MPC5566-Release/firmware.map` | Linker map and memory layout |
 
-The binary is linked for `0x40014000` and must fit inside the 48 KiB `SRAM_CODE` region defined by `MPC5566_RAM.ld`. It is not position independent and must not be loaded at a different address.
+The binary is linked for `0x40014000` and must fit inside the 48 KiB `SRAM_CODE`
+region in `MPC5566_RAM.ld`. It is not position independent and must be loaded
+at that address.
 
 ## CAN and ISO-TP configuration
 

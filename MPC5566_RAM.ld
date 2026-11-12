@@ -1,146 +1,83 @@
-/* Entry Point */
 ENTRY(_start)
 
-/* define heap and stack size */
-__HEAP_SIZE            = 24000 ;
-__STACK_SIZE           = 16000 ;
-    
+__HEAP_SIZE = 24000;
+__STACK_SIZE = 16000;
+
 MEMORY
 {
-    /*
-     * Keep the E78 application's fixed small-data windows available for
-     * calls into the untouched application image:
-     *
-     *   r13 base / initialized state: 0x40008000
-     *   r14 base:                     0x40018000
-     *
-     * Kernel code fits below the r14 window.  Kernel writable state lives in
-     * the otherwise separate 0x40020000 window so the application RAM image
-     * at 0x40009100..0x4000E1FF can be reconstructed later.
-     */
-    SRAM_CODE : org = 0x40014000, len = 48K
-    SRAM      : org = 0x40008000, len = 48K
+    /* Preserve the stock loader's entry address and existing RAM allocation. */
+    SRAM_CODE (rwx) : ORIGIN = 0x40014000, LENGTH = 48K
+    SRAM      (rw)  : ORIGIN = 0x40008000, LENGTH = 48K
 }
 
 SECTIONS
 {
-    /* The kernel never returns or performs C++ runtime teardown. */
-    /DISCARD/ :
+    .startup : ALIGN(4)
     {
-      *(.dtors)
-      *(.dtors.*)
-      *(.init)
-      *(.init.*)
-      *(.fini)
-      *(.fini.*)
-      *(.fini_array)
-      *(.fini_array.*)
-      *(.eh_frame)
-      *(.eh_frame.*)
-      *(.eh_frame_hdr)
-    }
-
-    . = ORIGIN(SRAM_CODE);
-    
-    .startup ALIGN(4) :
-    {
-    __start = . ;
-    	*(.startup)
-    } > SRAM_CODE
-    
-    .text_booke :
-    { 
-      *(.text*)    
-    } > SRAM_CODE            
-           
-    .ctors :
-    {
-      __CTOR_LIST__ = .;
-      KEEP (*(SORT(.ctors.*)))
-      KEEP (*(.ctors))
-      __CTOR_END__ = .;
-    } > SRAM_CODE
-        
-    .preinit_array :
-    {
-      PROVIDE_HIDDEN (__preinit_array_start = .);
-      KEEP (*(.preinit_array*))
-      PROVIDE_HIDDEN (__preinit_array_end = .);
+        KEEP(*(.startup))
     } > SRAM_CODE
 
-    .init_array :
+    .text : ALIGN(4)
     {
-      PROVIDE_HIDDEN (__init_array_start = .);
-      KEEP (*(SORT(.init_array.*)))
-      KEEP (*(.init_array*))
-      PROVIDE_HIDDEN (__init_array_end = .);
+        *(.text .text.* .text_booke)
     } > SRAM_CODE
 
-    .rodata :
+    .preinit_array : ALIGN(4)
     {
-      *(.rodata)
-      *(.rodata.*)
-    } > SRAM_CODE
-    
-    .data   :
-    {
-      *(.data)
-      *(.data.*)
-    } > SRAM_CODE
-    
-    .sdata2  :
-    {
-      __SDATA2_START__ = .;
-      *(.sdata2)
-      *(.sdata2.*)
+        __preinit_array_start = .;
+        KEEP(*(.preinit_array .preinit_array.*))
+        __preinit_array_end = .;
     } > SRAM_CODE
 
-    .sbss2    (NOLOAD)   :
+    .init_array : ALIGN(4)
     {
-      /* _SDA2_BASE_ = .; */ 
-      *(.sbss2)
-      *(.sbss2.*)
-      __SBSS2_END__ = .;
+        __init_array_start = .;
+        KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+        KEEP(*(.init_array))
+        __init_array_end = .;
     } > SRAM_CODE
-    
-    .sdata  :
+
+    .rodata : ALIGN(4)
     {
-      __SDATA_START__ = .;
-      *(.sdata)
-      *(.sdata.*)
+        *(.rodata .rodata.* .sdata2 .sdata2.*)
     } > SRAM_CODE
-    
-    .bss   (NOLOAD)  :
+
+    .data : ALIGN(4)
     {
-      __BSS_START = .;
-      *(.sbss)
-      *(.sbss.*)	
-      __SBSS_END__ = .;
-      *(.bss)
-      *(.bss.*)
-      *(COMMON)
-      __BSS_END = .;
+        *(.data .data.* .sdata .sdata.*)
     } > SRAM_CODE
+
+    .bss (NOLOAD) : ALIGN(16)
+    {
+        __BSS_START = .;
+        *(.bss .bss.* .sbss .sbss.* .sbss2 .sbss2.*)
+        *(COMMON)
+        __BSS_END = .;
+    } > SRAM_CODE
+    __BSS_SIZE = __BSS_END - __BSS_START;
 
     .heap (NOLOAD) : ALIGN(16)
     {
-      __HEAP = . ;
-      PROVIDE (_end = . );
-      PROVIDE (end = . );
-      . += __HEAP_SIZE ;
-      __HEAP_END = . ;
+        __HEAP = .;
+        . += __HEAP_SIZE;
+        __HEAP_END = .;
     } > SRAM
-    
+
     .stack ORIGIN(SRAM) + LENGTH(SRAM) - __STACK_SIZE (NOLOAD) :
     {
-      _stack_end = . ;
-      . +=  __STACK_SIZE ;
-      _stack_addr = . ;
-      __SP_INIT = . ;
+        _stack_end = .;
+        . += __STACK_SIZE;
+        __SP_INIT = .;
     } > SRAM
- 
-/*-------- LABELS USED IN CODE -------------------------------*/
-     
-__BSS_SIZE    = __BSS_END - __BSS_START;
 
+    /* Startup runs constructors explicitly; the kernel never tears down. */
+    /DISCARD/ :
+    {
+        *(.init .init.* .fini .fini.* .fini_array .fini_array.*)
+        *(.eh_frame .eh_frame.* .eh_frame_hdr)
+        *(.comment .note.GNU-stack)
+    }
 }
+
+ASSERT(__HEAP_END <= _stack_end, "Heap overlaps stack")
+ASSERT(_start == ORIGIN(SRAM_CODE), "Entry point must match the RAM loader address")

@@ -1,21 +1,32 @@
 {
-    "version": 2,
-    "configurePresets": [
-        {
-            "name": "MPC5566-Release",
-            "displayName": "MPC5566-Release",
-            "description": "MPC5566-Release",
-            "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build/MPC5566-Release",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/toolchain.cmake",
-                "CMAKE_OBJCOPY": "powerpc-eabivle-objcopy",
-                "MPC5566_LINKER_SCRIPT": "${sourceDir}/MPC5566_RAM.ld",
-                "CMAKE_C_FLAGS": "-DNDEBUG -Os -flto -Wall -fmessage-length=0 -fstrict-volatile-bitfields -ffunction-sections -fdata-sections -mcpu=e200z7 -mbig -mno-vle -mregnames -mhard-float -fmerge-all-constants -fno-ident",
-                "CMAKE_CXX_FLAGS": "-DNDEBUG -Os -flto -Wall -fmessage-length=0 -fstrict-volatile-bitfields -ffunction-sections -fdata-sections -mcpu=e200z7 -mbig -mno-vle -mregnames -mhard-float -fno-exceptions -fno-rtti -fmerge-all-constants -fno-ident",
-                "CMAKE_ASM_FLAGS": "-DNDEBUG -mcpu=e200z7 -mbig -mno-vle -mregnames",
-                "CMAKE_EXE_LINKER_FLAGS": "-flto -fuse-linker-plugin -nostartfiles -Wl,--gc-sections -mcpu=e200z7 -mbig -mno-vle -mhard-float -T\"${sourceDir}/MPC5566_RAM.ld\""
-            }
-        }
-    ]
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 4,
+    "minor": 0,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "MPC5566-Release",
+      "displayName": "MPC5566 Clang Release",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "toolchainFile": "${sourceDir}/toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS_RELEASE": "-mcpu=e200z6 -Oz -DNDEBUG -Wall -Wextra",
+        "CMAKE_CXX_FLAGS_RELEASE": "-mcpu=e200z6 -Oz -DNDEBUG -flto=full -Wall -Wextra",
+        "CMAKE_ASM_FLAGS_RELEASE": "-mcpu=e200z6",
+        "CMAKE_EXE_LINKER_FLAGS_RELEASE": "-flto=full -Wl,--gc-sections -Wl,-Map,firmware.map -T\"${sourceDir}/MPC5566_RAM.ld\"",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "MPC5566-Release",
+      "configurePreset": "MPC5566-Release"
+    }
+  ]
 }
